@@ -2,13 +2,15 @@
 pragma solidity ^0.8.28;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 
-contract NftAuction is Initializable {
+contract NftAuction is Initializable, UUPSUpgradeable, ReentrancyGuardUpgradeable {
     struct Auction {
         // 拍卖是否结束
         bool ended;
-        // 是否正在出价
-        bool biding;
         // 起始价格
         uint256 startPrice;
         // 最高出价者
@@ -19,9 +21,9 @@ contract NftAuction is Initializable {
         uint256 startTime;
         // 拍卖结束时间
         uint256 endTime;
-        // 拍卖token地址
+        // NFT地址
         address tokenAddress;
-        // 拍卖token ID
+        // NFT ID
         uint256 tokenId;
     }
 
@@ -29,8 +31,15 @@ contract NftAuction is Initializable {
     address public owner;
     uint public autionId;
 
+    mapping(address => AggregatorV3Interface) public tokenPriceFeeds;
+
     function initialize() public initializer {
+        __ReentrancyGuard_init();
         owner = msg.sender;
+    }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {
+        // 什么也不做
     }
 
     modifier onlyOwner() {
@@ -42,18 +51,12 @@ contract NftAuction is Initializable {
      *@notice 创建拍卖
      *@param _duration 拍卖时长
      *@param _startPrice 起始价格
-     *@param _tokenAddress 拍卖token地址
-     *@param _tokenId 拍卖token ID
+     *@param _tokenAddress NFT地址
+     *@param _tokenId NFT ID
      */
-    function createAution(
-        uint _duration,
-        uint _startPrice,
-        address _tokenAddress,
-        uint _tokenId
-    ) external onlyOwner {
+    function createAution(uint _duration, uint _startPrice, address _tokenAddress, uint _tokenId) external onlyOwner {
         Auction memory auction = Auction({
             ended: false,
-            biding: false,
             startPrice: _startPrice,
             highestBidder: address(0),
             highestBid: 0,
@@ -69,23 +72,25 @@ contract NftAuction is Initializable {
     /**
      *@notice 竞拍
      *@param _autionId 拍卖ID
+     *@param _token ERC20地址
+     *@param _amount 出价数量
      */
-    function bid(uint _autionId) external payable {
+    function bid(uint _autionId, address _token, uint _amount) external payable nonReentrant {
         Auction storage auction = auctions[_autionId];
         require(!auction.ended && auction.endTime > block.timestamp, "Auction already ended");
-        require(
-            msg.value > auction.highestBid && msg.value > auction.startPrice,
-            "There already is a higher bid"
-        );
+        require(msg.value > auction.highestBid && msg.value > auction.startPrice, "There already is a higher bid");
 
-        require(!auction.biding, "Already biding");
-        auction.biding = true;
         if (auction.highestBidder != address(0)) {
             (bool success, ) = payable(auction.highestBidder).call{value: auction.highestBid}("");
             require(success, "Transfer failed");
         }
         auction.highestBidder = msg.sender;
         auction.highestBid = msg.value;
-        auction.biding = false;
+    }
+
+    function _getPrice(address _token) internal view returns (uint256) {
+        AggregatorV3Interface priceFeed = tokenPriceFeeds[_token];
+        (, int256 price, , , ) = priceFeed.latestRoundData();
+        return uint256(price);
     }
 }
