@@ -4,9 +4,8 @@ const path = require("path");
 
 module.exports = async ({getNamedAccounts, deployments}) => {
     const {save} = deployments;
-    const {deployer} = await getNamedAccounts();
+    const [account1, account2] = await ethers.getSigners();
 
-    console.log("部署地址：", deployer);
     const nftAuction = await ethers.getContractFactory("NftAuction");
     const nftAuctionProxy = await upgrades.deployProxy(nftAuction, [], {
         initializer: "initialize",
@@ -28,6 +27,20 @@ module.exports = async ({getNamedAccounts, deployments}) => {
     save("NftAuction", {
         address: proxyAddress,
         abi: nftAuction.interface.format("json"),
+    });
+
+    const nftFactory = await ethers.getContractFactory("MyToken");
+    const nft = await nftFactory.deploy();
+    await nft.waitForDeployment();
+    console.log("NFT合约地址", await nft.getAddress());
+
+    // 铸造
+    for (let i = 1; i < 5; i++) {
+        await nft.connect(account1).mint_token();
+    }
+    save("Nft", {
+        address: await nft.getAddress(),
+        abi: nftFactory.interface.format("json"),
     });
 };
 module.exports.tags = ["deployNftAuction"];

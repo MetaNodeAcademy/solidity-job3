@@ -1,0 +1,20 @@
+{
+  "address": "0x0eCe45C29106076eB9c9aF3942c6842f510117Db",
+  "abi": [
+    "error InvalidInitialization()",
+    "error NotInitializing()",
+    "error ReentrancyGuardReentrantCall()",
+    "event Initialized(uint64)",
+    "function auctions(uint256) view returns (bool,uint256,address,uint256,uint256,uint256,uint256,address,uint256,address)",
+    "function autionId() view returns (uint256)",
+    "function bid(uint256,address,uint256) payable",
+    "function createAution(uint256,uint256,address,uint256)",
+    "function endAuction(uint256)",
+    "function getPrice(address) view returns (uint256)",
+    "function initialize()",
+    "function owner() view returns (address)",
+    "function setTokenPriceFeed(address,address)",
+    "function tokenPriceFeeds(address) view returns (address)"
+  ],
+  "numDeployments": 1
+}
